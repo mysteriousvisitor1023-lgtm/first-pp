@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: transparent;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    padding: 4px 8px 8px 8px;
+  }
+
+  #card {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 0 24px rgba(6,182,212,0.08);
+  }
+
+  /* ── top bar ── */
+  #topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px 8px;
+    border-bottom: 1px solid #21262d;
+  }
+  #topbar-left { display: flex; align-items: center; gap: 8px; }
+  .dot { width:10px; height:10px; border-radius:50%; }
+  .dot-r{background:#ff5f57;} .dot-y{background:#febc2e;} .dot-g{background:#28c840;}
+  #title-text { color:#8b949e; font-size:11px; letter-spacing:1px; text-transform:uppercase; }
+  #status-pill {
+    background:#0f2027; border:1px solid #22c55e33;
+    color:#22c55e; font-size:10px; padding:2px 8px; border-radius:20px;
+    letter-spacing:0.5px;
+  }
+  #status-dot {
+    display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:#22c55e; margin-right:5px;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── textarea ── */
+  #typing-wrap { padding:14px 16px 6px; }
+  #typing-area {
+    width:100%; min-height:90px; max-height:160px;
+    background:#0d1117; color:#e6edf3;
+    border:none; outline:none; resize:vertical;
+    font-family:inherit; font-size:15px; line-height:1.65;
+    caret-color:#06b6d4;
+  }
+  #typing-area::placeholder { color:#3d4450; }
+
+  /* ── stats row ── */
+  #stats {
+    display: flex; flex-wrap:wrap; gap:6px 18px;
+    padding: 8px 16px 10px;
+    border-top: 1px solid #21262d;
+  }
+  .stat { font-size:10.5px; color:#8b949e; letter-spacing:0.3px; }
+  .stat span { color:#79c0ff; font-weight:600; }
+
+  /* ── analyze button ── */
+  #btn-wrap { padding: 0 16px 14px; display:flex; gap:10px; }
+  #btn-analyze {
+    flex:1; padding:9px 0; background:#06b6d4; color:#0d1117;
+    border:none; border-radius:6px; font-size:12px; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  #btn-analyze:hover { background:#22d3ee; }
+  #btn-analyze:active { transform:scale(0.98); }
+  #btn-analyze:disabled {
+    background:#1e3040; color:#8b949e; cursor:not-allowed; transform:none;
+  }
+  #btn-reset {
+    padding:9px 14px; background:transparent; color:#8b949e;
+    border:1px solid #30363d; border-radius:6px; font-size:12px;
+    cursor:pointer; transition:border-color 0.2s, color 0.2s;
+  }
+  #btn-reset:hover { border-color:#8b949e; color:#e6edf3; }
+
+  /* ── progress bar ── */
+  #progress-wrap { padding:0 16px 10px; }
+  #progress-label { font-size:10px; color:#8b949e; margin-bottom:4px; }
+  #progress-track {
+    height:4px; background:#21262d; border-radius:2px; overflow:hidden;
+  }
+  #progress-bar {
+    height:100%; width:0%; background:linear-gradient(90deg,#06b6d4,#22d3ee);
+    border-radius:2px; transition:width 0.3s ease;
+  }
+
+  /* scanning animation on analyze */
+  @keyframes scan {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+  #btn-analyze.scanning {
+    background: linear-gradient(90deg,#0e7490,#06b6d4,#0e7490);
+    background-size: 200% 100%;
+    animation: scan 0.9s linear infinite;
+    color:#fff;
+  }
+</style>
+</head>
+<body>
+<div id="card">
+  <!-- Top bar -->
+  <div id="topbar">
+    <div id="topbar-left">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <span id="title-text">⌨ Keystroke Biometric Recorder</span>
+    </div>
+    <div id="status-pill"><span id="status-dot"></span><span id="status-txt">READY</span></div>
+  </div>
+
+  <!-- Textarea -->
+  <div id="typing-wrap">
+    <textarea
+      id="typing-area"
+      placeholder="Start typing anything here… a sentence, a confession, a note. The AI watches only your rhythm, not your words."
+      spellcheck="false"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+    ></textarea>
+  </div>
+
+  <!-- Progress bar -->
+  <div id="progress-wrap">
+    <div id="progress-label">Keystrokes collected: <b id="prog-text">0 / 25 minimum</b></div>
+    <div id="progress-track"><div id="progress-bar"></div></div>
+  </div>
+
+  <!-- Live stats -->
+  <div id="stats">
+    <div class="stat">KEYSTROKES <span id="ks-count">0</span></div>
+    <div class="stat">WPM <span id="ks-wpm">—</span></div>
+    <div class="stat">ERRORS <span id="ks-err">0</span></div>
+    <div class="stat">PAUSES <span id="ks-pauses">0</span></div>
+    <div class="stat">DURATION <span id="ks-dur">0.0s</span></div>
+  </div>
+
+  <!-- Buttons -->
+  <div id="btn-wrap">
+    <button id="btn-analyze" disabled onclick="analyze()">
+      🔍 Analyze Typing Pattern
+    </button>
+    <button id="btn-reset" onclick="resetSession()">↺ Reset</button>
+  </div>
+</div>
+
+<script>
+  // ── Streamlit communication (no CDN needed) ──────────────────────────────
+  function stReady()  { window.parent.postMessage({type:"streamlit:componentReady", apiVersion:1}, "*"); }
+  function stHeight(h){ window.parent.postMessage({type:"streamlit:setFrameHeight", height:h}, "*"); }
+  function stSend(v)  {
+    window.parent.postMessage({type:"streamlit:setComponentValue", value:v, dataType:"json"}, "*");
+  }
+
+  // ── State ────────────────────────────────────────────────────────────────
+  const MIN_KS = 25;
+  let events = [], ksCount = 0, errCount = 0, pauseCount = 0;
+  let startTime = null, lastDownTime = null;
+  const PAUSE_THRESH = 500;
+
+  const textarea  = document.getElementById("typing-area");
+  const btnAnalyze= document.getElementById("btn-analyze");
+  const barEl     = document.getElementById("progress-bar");
+  const progTxt   = document.getElementById("prog-text");
+  const statusTxt = document.getElementById("status-txt");
+
+  // ── Keystroke capture ────────────────────────────────────────────────────
+  textarea.addEventListener("keydown", (e) => {
+    const now = performance.now();
+    if (!startTime) { startTime = now; }
+
+    if (lastDownTime !== null && (now - lastDownTime) > PAUSE_THRESH) {
+      pauseCount++;
+      document.getElementById("ks-pauses").textContent = pauseCount;
+    }
+    lastDownTime = now;
+
+    if (e.key === "Backspace" || e.key === "Delete") {
+      errCount++;
+      document.getElementById("ks-err").textContent = errCount;
+    }
+
+    ksCount++;
+    events.push({ type:"down", key:e.key, code:e.code, timestamp:now });
+    updateUI(now);
+  });
+
+  textarea.addEventListener("keyup", (e) => {
+    events.push({ type:"up", key:e.key, code:e.code, timestamp:performance.now() });
+  });
+
+  function updateUI(now) {
+    const elapsed = (now - startTime) / 1000;
+    document.getElementById("ks-count").textContent = ksCount;
+    document.getElementById("ks-dur").textContent   = elapsed.toFixed(1) + "s";
+
+    // WPM
+    if (elapsed > 2) {
+      const chars = textarea.value.replace(/\s/g,"").length;
+      document.getElementById("ks-wpm").textContent = Math.round((chars/5)/(elapsed/60));
+    }
+
+    // Progress bar
+    const pct = Math.min(100, (ksCount / MIN_KS) * 100);
+    barEl.style.width = pct + "%";
+    if (ksCount < MIN_KS) {
+      progTxt.textContent = `${ksCount} / ${MIN_KS} minimum`;
+      btnAnalyze.disabled = true;
+      statusTxt.textContent = "RECORDING";
+    } else {
+      progTxt.textContent = `${ksCount} keystrokes — ready to analyze`;
+      btnAnalyze.disabled = false;
+      statusTxt.textContent = "READY TO ANALYZE";
+    }
+  }
+
+  // ── Analyze ──────────────────────────────────────────────────────────────
+  function analyze() {
+    btnAnalyze.classList.add("scanning");
+    btnAnalyze.textContent = "⏳ Analyzing…";
+    btnAnalyze.disabled = true;
+    statusTxt.textContent = "ANALYZING";
+
+    setTimeout(() => {
+      stSend({
+        events      : events,
+        text        : textarea.value,
+        ks_count    : ksCount,
+        err_count   : errCount,
+        pause_count : pauseCount,
+        duration_ms : startTime ? performance.now() - startTime : 0,
+        action      : "analyze"
+      });
+      btnAnalyze.classList.remove("scanning");
+      btnAnalyze.textContent = "🔍 Analyze Typing Pattern";
+      btnAnalyze.disabled = false;
+      statusTxt.textContent = "ANALYSIS SENT";
+    }, 600);
+  }
+
+  // ── Reset ────────────────────────────────────────────────────────────────
+  function resetSession() {
+    events = []; ksCount = 0; errCount = 0; pauseCount = 0;
+    startTime = null; lastDownTime = null;
+    textarea.value = "";
+    document.getElementById("ks-count").textContent  = "0";
+    document.getElementById("ks-wpm").textContent    = "—";
+    document.getElementById("ks-err").textContent    = "0";
+    document.getElementById("ks-pauses").textContent = "0";
+    document.getElementById("ks-dur").textContent    = "0.0s";
+    barEl.style.width = "0%";
+    progTxt.textContent = "0 / 25 minimum";
+    btnAnalyze.disabled = true;
+    statusTxt.textContent = "READY";
+    stSend({ action: "reset" });
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  window.addEventListener("load", () => {
+    stReady();
+    stHeight(document.body.scrollHeight + 10);
+  });
+
+  window.addEventListener("message", (evt) => {
+    if (evt.data && evt.data.type === "streamlit:render") {
+      stHeight(document.body.scrollHeight + 10);
+    }
+  });
+</script>
+</body>
+</html>
